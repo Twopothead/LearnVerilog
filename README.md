@@ -44,9 +44,9 @@ module main;
 endmodule  
 ```
 command-lines:
-```shell
-$iverilog -o laoqiu hello.v
-$vvp laoqiu
+```sh
+$ iverilog -o laoqiu hello.v
+$ vvp laoqiu
 ```
 __What does vvp mean?__  
 `vvp` means ___Verilog Preprocessor___   
@@ -136,17 +136,69 @@ ok:
 	gtkwave test.vcd
 ```
 `terminal:`
-```shell
-$make
+```sh
+$ make
 ```
 ------------------
 __eg2__:  
- [Verilog testbench总结(一)](http://blog.csdn.net/wordwarwordwar/article/details/53885209)
+ [Verilog testbench总结(一)](http://blog.csdn.net/wordwarwordwar/article/details/53885209)  
  `hello.v`
  ```Verilog
+ module counter (clk, reset, enable, count);
+
+ input clk, reset, enable;
+ output [3:0] count;
+ reg [3:0] count;
+
+ always @ (posedge clk)
+ if (reset == 1'b1) begin
+ count <= 0;
+ end else if ( enable == 1'b1) begin
+ count <= count + 1;
+ end
+
+ endmodule
+
  ```
  `hello_tb.v`
  ```Verilog
+ module counter_tb;
+ reg clk, reset, enable;
+ wire [3:0] count;
+
+ counter U0 (
+ .clk (clk),
+ .reset   (reset),
+ .enable (enable),
+ .count   (count)
+ );
+
+ initial begin
+    clk = 0;
+    reset = 0;
+    enable = 0;
+ end
+
+ always
+    #5   clk =   ! clk;
+
+ initial   begin
+    $dumpfile ("counter.vcd");
+    $dumpvars;
+ end
+
+ initial   begin
+    $display("\t\ttime,\tclk,\treset,\tenable,\tcount");
+    $monitor("‰d,\t‰b,\t‰b,\t‰b,\t‰d",$time, clk,reset,enable,count);
+ end
+
+ initial
+     #100   $finish;
+
+ //Rest of testbench code after this line
+
+    endmodule
+
  ```
  filename:`makefile`
  ```makefile
@@ -154,24 +206,172 @@ __eg2__:
  # 在Makefile文件中，命令必须以【tab】键开始。
  #test.vcd 是代码里面生成的
  #测试hello_tb.v里面有
- # initial begin
- # 		$dumpfile("./test.vcd");
- # 		$dumpvars(-1, test);
- # 		$dumpon();
- # 		#6
- # 		$dumpoff();
- # 		$finish;
+ # initial   begin
+ #    $dumpfile ("counter.vcd");
+ #    $dumpvars;
  # end
  ok:
  	iverilog -o laji hello.v hello_tb.v
  	vvp laji
- 	gtkwave test.vcd
+ 	gtkwave counter.vcd
+
+
  ```
  `terminal:`
  ```shell
  $make
  ```
+ [FPGA开发-坚持CSDN](http://blog.csdn.net/wordwarwordwar/article/category/6462005/1)  
+```Verilog
+ initial begin
+   //blabla
+ end
+```
+### [Verilog_HDL数字设计与综合（第二版）](https://pan.baidu.com/share/link?shareid=2439770026&uk=2567923546&app=zd)`国外著作，夏宇闻译`
+
+- Compiler Directives
+```Verilog
+`define qiuri 3
+`include "hello.v"
+```
  ------------------
+
+ __eg3__:  
+[Verilog testbench总结(一)](http://blog.csdn.net/wordwarwordwar/article/details/53885209)  
+[王金明 Verilog_HDL 程序设计教程PDF]()  
+  `hello.v`
+  ```Verilog
+  module adder4(cout,sum,ina,inb,cin);
+  output[3:0] sum;
+  output cout;
+  input[3:0] ina,inb;
+  input cin;
+  assign {cout,sum}=ina+inb+cin;
+  endmodule
+  ```
+  `hello_tb.v`
+  ```Verilog
+  `timescale 1ns/1ns
+  `include "hello.v"
+  //adder4
+  module adder_tp; //测试模块的名字
+  reg[3:0] a,b; //测试输入信号定义为 reg 型
+  reg cin;
+  wire[3:0] sum;
+  //测试输出信号定义为 wire 型
+  wire cout;
+  integer i,j;
+  // adder4 adder(sum,cout,a,b,cin); //调用测试对象
+  //写反了
+  adder4 adder(cout,sum,a,b,cin); //调用测试对象
+  always #5 cin=~cin; //设定 cin 的取值
+  initial
+  begin
+  a=0;b=0;cin=0;
+  for(i=1;i<16;i=i+1)
+  #10
+  a=i;
+  //设定 a 的取值
+  end
+  initial
+  begin
+  for(j=1;j<16;j=j+1)
+  #10
+  //设定 b 的取值
+  b=j;
+  end
+  initial
+  //定义结果显示格式
+  begin
+  $monitor($time,,,"%d + %d + %b={%b,%d}",a,b,cin,cout,sum);
+  #160 $finish;
+  end
+  endmodule
+  ```
+  filename:`makefile`
+  ```makefile
+  # encoding:utf-8
+  # 在Makefile文件中，命令必须以【tab】键开始。
+  ok:
+  	#iverilog -o laji hello.v hello_tb.v
+  	iverilog -o laji hello_tb.v
+  	vvp laji
+  	gtkwave counter.vcd
+  ```
+  `terminal:`
+  ```shell
+  $ make
+  ```
+  - 通过`include hello.v将文件添加到测试文件中
+  - gtkwave选中所有信号，再点insert
+  ![结果图](assets/README-03675.png)
+  ------------------
+  ------------------
+  __eg2__:  
+   [Verilog testbench总结(一)](http://blog.csdn.net/wordwarwordwar/article/details/53885209)
+   `hello.v`
+   ```Verilog
+   ```
+   `hello_tb.v`
+   ```Verilog
+   ```
+   filename:`makefile`
+   ```makefile
+   # encoding:utf-8
+   # 在Makefile文件中，命令必须以【tab】键开始。
+   #test.vcd 是代码里面生成的
+   #测试hello_tb.v里面有
+   # initial begin
+   # 		$dumpfile("./test.vcd");
+   # 		$dumpvars(-1, test);
+   # 		$dumpon();
+   # 		#6
+   # 		$dumpoff();
+   # 		$finish;
+   # end
+   ok:
+   	iverilog -o laji hello.v hello_tb.v
+   	vvp laji
+   	gtkwave test.vcd
+   ```
+   `terminal:`
+   ```shell
+   $make
+   ```
+   ------------------
+   ------------------
+   __eg2__:  
+    [Verilog testbench总结(一)](http://blog.csdn.net/wordwarwordwar/article/details/53885209)
+    `hello.v`
+    ```Verilog
+    ```
+    `hello_tb.v`
+    ```Verilog
+    ```
+    filename:`makefile`
+    ```makefile
+    # encoding:utf-8
+    # 在Makefile文件中，命令必须以【tab】键开始。
+    #test.vcd 是代码里面生成的
+    #测试hello_tb.v里面有
+    # initial begin
+    # 		$dumpfile("./test.vcd");
+    # 		$dumpvars(-1, test);
+    # 		$dumpon();
+    # 		#6
+    # 		$dumpoff();
+    # 		$finish;
+    # end
+    ok:
+    	iverilog -o laji hello.v hello_tb.v
+    	vvp laji
+    	gtkwave test.vcd
+    ```
+    `terminal:`
+    ```shell
+    $make
+    ```
+    ------------------
 
 Or generate predictions on new data:
 
