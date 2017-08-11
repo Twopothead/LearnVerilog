@@ -335,7 +335,7 @@ __eg2__:
    //写反了
    adder4 adder(cout,sum,a,b,cin); //调用测试对象
    always #5 cin=~cin; //设定 cin 的取值
-   
+
    initial begin
    $dumpfile("./adder_tp.vcd");
    $dumpvars(-1,adder_tp);
@@ -395,28 +395,329 @@ __eg2__:
    ![效果图](assets/README-bb232.png)
    ------------------
    ------------------
-   __eg2__:  
+   CSDN上的这篇博文很有参考价值
+   [基于直接相联映象方式的Cache设计](http://blog.csdn.net/quinze_lee/article/details/51581600)
+   __eg5__:  
     [Verilog testbench总结(一)](http://blog.csdn.net/wordwarwordwar/article/details/53885209)
-    `hello.v`
-    ```Verilog
-    ```
-    `hello_tb.v`
-    ```Verilog
-    ```
+    `hello.v`  
+  ```Verilog    
+    `timescale 1ns / 1ps
+    module Main(RD, MWr, Addr, reset, o_data, cpu_data);
+
+        input RD, MWr, reset;
+        input [31:0] cpu_data, Addr;
+        output [31:0]o_data;
+
+        wire [1:0] CountNum;
+        wire MRd;
+        wire [31:0] ram_data;
+        reg CLK;
+
+        initial begin  // 产生时钟信号
+            CLK = 0;
+            forever #50 begin
+                CLK = !CLK;
+            end
+        end
+
+        MainCache MainCache(reset, CLK, MWr, Addr, RD, CountNum, MRd, ram_data, cpu_data, o_data);
+        RAM RAM(cpu_data, Addr, MRd, CountNum, MWr, ram_data);
+    endmodule
+```
+```Verilog    
+
+    `timescale 1ns / 1ps
+    module MainCache(reset, clk, MWr, Addr, RD, count_num, MRd, ram_data, cpu_data, o_data);
+
+        input clk, MWr, RD, reset;
+        input [31:0] Addr, ram_data, cpu_data;
+        output [31:0] o_data;
+        output [1:0] count_num;
+        output MRd;
+
+        wire hit, count_enable, ramDataRW, cpuDataWr, tableWr;
+
+        CacheCtrl CacheCtrl(clk, RD, MWr, count_num, hit, count_enable, ramDataRW, cpuDataWr, MRd, tableWr);
+        CacheCount CacheCount(reset, clk, count_enable, count_num);
+        CacheTable CacheTable(Addr[17:4], Addr[31:18], reset, tableWr, hit);
+        CacheData CacheData(hit, ram_data, cpu_data, ramDataRW, cpuDataWr, Addr[17:4], Addr[3:0], count_num, o_data);
+
+    endmodule
+```
+```Verilog  
+    `timescale 1ns / 1ps
+
+    module CacheCtrl(clk, RD, MWr, count_num, hit, count_enable, ramDataRW, cpuDataWr, MRd, tableWr);
+
+        input clk, RD, MWr, hit;
+        input [1:0] count_num;
+
+        output reg count_enable, ramDataRW, MRd, tableWr, cpuDataWr;
+
+        always@(posedge clk) begin
+            if (RD == 0) begin
+                if (hit) begin
+                    ramDataRW = 0;
+                    MRd = 0;
+                    count_enable = 0;
+                    tableWr = 0;
+                end
+                else begin
+                    ramDataRW = 1;
+                    MRd = 1;
+                    count_enable = 1;
+                    tableWr = 0;
+                end
+            end
+
+            if (count_num == 2'b11) begin // 状态11表示已经在RAM读完了所有的数据，这是最终状态
+                count_enable = 0;
+                tableWr = 1;
+                ramDataRW = 0;
+            end
+
+            if (MWr) begin
+                if (hit) begin
+                    cpuDataWr = 1;
+                end else begin
+                    cpuDataWr = 0;
+                end
+            end else begin
+                cpuDataWr = 0;
+            end
+        end
+
+    endmodule
+```
+```Verilog
+    `timescale 1ns / 1ps
+
+    module CacheCount(reset, clk, enable, num);
+        input reset, clk, enable;
+        output reg[1:0] num;
+        reg [1:0] count_num;
+
+        always@(posedge clk) begin
+            if (reset) count_num = 0;
+            else if (enable) count_num = count_num + 1;
+
+            num = count_num; // always do this
+        end
+
+    endmodule
+
+    `timescale 1ns / 1ps
+```
+```Verilog
+    module CacheTable(blockAddr, regionCode, reset, tableWr, hit);
+        input [13:0] blockAddr, regionCode;
+        input reset, tableWr;
+        output hit;
+
+        reg [13:0] region[0:16383];
+        reg [0:0] valid [0:16383];
+        reg [14:0] tempi;
+
+        assign hit = (region[blockAddr] == regionCode && valid[blockAddr] == 1) ? 1 : 0;
+
+        always@(reset) begin //  初始化设置有效位为0
+            if (reset) begin
+                for(tempi = 0; tempi <= 16383; tempi = tempi + 1)
+                    valid[tempi] = 0;
+            end
+        end
+
+        always@(tableWr) begin
+            if (tableWr) begin
+                valid[blockAddr] = 1;
+                region[blockAddr] = regionCode;
+            end
+        end
+
+    endmodule
+```
+```Verilog
+    `timescale 1ns / 1ps
+
+    module CacheData(hit, ram_data, cpu_data, ramDataRW, cpuDataWr, blockAddr, offset, countNum, o_data);
+
+        input [31:0] ram_data, cpu_data;
+        input [13:0] blockAddr;
+        input [3:0] offset;
+        input [1:0] countNum;
+        input ramDataRW, cpuDataWr, hit;
+
+        output reg[31:0] o_data;
+
+        reg [7:0] data [0:262143];
+
+        always@(cpuDataWr or blockAddr or ram_data or cpu_data or offset or countNum or ramDataRW or hit) begin
+            if (ramDataRW == 1) begin // 写主存给与的数据
+                data[(blockAddr * 16) + (countNum * 4) + 0] = ram_data[31:24];
+                data[(blockAddr * 16) + (countNum * 4) + 1] = ram_data[23:16];
+                data[(blockAddr * 16) + (countNum * 4) + 2] = ram_data[15:8];
+                data[(blockAddr * 16) + (countNum * 4) + 3] = ram_data[7:0];
+            end
+            else if (ramDataRW == 0 && hit == 1) begin // 读数据
+                o_data[31:24] = data[(blockAddr * 16) + offset + 0];
+                o_data[23:16] = data[(blockAddr * 16) + offset + 1];
+                o_data[15:8] = data[(blockAddr * 16) + offset + 2];
+                o_data[7:0] = data[(blockAddr * 16) + offset + 3];
+            end
+
+            if (cpuDataWr == 1 && hit == 1) begin // 写CPU给与的数据
+                data[(blockAddr * 16) + offset + 0] = cpu_data[31:24];
+                data[(blockAddr * 16) + offset + 1] = cpu_data[23:16];
+                data[(blockAddr * 16) + offset + 2] = cpu_data[15:8];
+                data[(blockAddr * 16) + offset + 3] = cpu_data[7:0];
+            end
+        end
+
+    endmodule
+```    
+```Verilog  
+
+    `timescale 1ns / 1ps
+    module RAM (i_data, addr, MRd, countNum, MWr, o_data);
+        input [31:0] i_data;
+        input [31:0] addr;
+         input [1:0] countNum;
+        input MRd, MWr;
+        output reg [31:0] o_data;
+        reg [7:0] memory [0:1048575]; // 假设1M内存，因为4G模拟器跑不起来
+         initial begin
+            o_data = 0;
+         end
+        always @(addr or i_data or MRd or countNum or MWr) begin // 使用大端方式储存
+          if (MRd == 1) begin // 读数据到cache
+                o_data[31:24] = memory[addr[31:4] * 16+ countNum * 4 + 0];
+             o_data[23:16] = memory[addr[31:4] * 16 + countNum * 4 + 1];
+             o_data[15:8] = memory[addr[31:4] * 16 + countNum * 4 + 2];
+             o_data[7:0] = memory[addr[31:4] * 16 + countNum * 4 + 3];
+          end
+            if (MWr == 1) begin // 写数据
+                memory[addr] = i_data[31:24];
+             memory[addr+1] = i_data[23:16];
+             memory[addr+2] = i_data[15:8];
+             memory[addr+3] = i_data[7:0];
+          end
+        end
+    endmodule
+```
+`hello_tb.v`
+```Verilog
+    `timescale 1ns / 1ps
+
+    `include "hello.v"
+
+    module test;
+
+        // Inputs
+        reg RD;
+        reg MWr;
+        reg [31:0] Addr;
+        reg reset;
+        reg [31:0] cpu_data;
+
+        // Outputs
+        wire [31:0] o_data;
+
+        // Instantiate the Unit Under Test (UUT)
+        Main uut (
+            .RD(RD),
+            .MWr(MWr),
+            .Addr(Addr),
+            .reset(reset),
+            .o_data(o_data),
+            .cpu_data(cpu_data)
+        );
+
+        initial begin
+
+        $dumpfile("./test.vcd");
+        $dumpvars(-1,test);
+        $dumpon();
+
+            // Initialize Inputs
+            RD = 1;
+            MWr = 0;
+            Addr = 0;
+            reset = 1;
+            cpu_data = 0;
+
+          #100; //开始初始化
+              reset = 0;
+              $monitor($time,,,"\nRD:%d , %b\nMWr: %d, %b\nADDr: %d, %b\ncpu_data:%d , %b\n\n\n",RD,RD,MWr,MWr,Addr,Addr,cpu_data,cpu_data);
+
+            // 对块0写数据（此时cache没有数据）
+            #500;
+                MWr = 1;
+                RD = 1;
+                Addr = 32'b00000000000000000000000000000000;
+                cpu_data = 32'b11100000111111111111111111111111;
+
+              $monitor($time,,,"\nRD:%d , %b\nMWr: %d, %b\nADDr: %d, %b\ncpu_data:%d , %b\n\n\n",RD,RD,MWr,MWr,Addr,Addr,cpu_data,cpu_data);
+
+            #500;
+                MWr = 1;
+                RD = 1;
+                Addr = 32'b00000000000000000000000000000100;
+                cpu_data = 32'b11111111111111111111111111111111;
+              $monitor($time,,,"\nRD:%d , %b\nMWr: %d, %b\nADDr: %d, %b\ncpu_data:%d , %b\n\n\n",RD,RD,MWr,MWr,Addr,Addr,cpu_data,cpu_data);
+
+            // 对块1写数据（此时cache没有数据）
+            #500;
+                MWr = 1;
+                RD = 1;
+                Addr = 32'b00000000000001000000000000011000;
+                cpu_data = 32'b01110000111111110001111111000011;
+              $monitor($time,,,"\nRD:%d , %b\nMWr: %d, %b\nADDr: %d, %b\ncpu_data:%d , %b\n",RD,RD,MWr,MWr,Addr,Addr,cpu_data,cpu_data);
+
+            // 对块0读数据（此时cache没有数据）
+            #500;
+                RD = 0;
+                MWr = 0;
+                Addr = 32'b00000000000000000000000000000000;
+              $monitor($time,,,"\nRD:%d , %b\nMWr: %d, %b\nADDr: %d, %b\ncpu_data:%d , %b\n\n\n",RD,RD,MWr,MWr,Addr,Addr,cpu_data,cpu_data);
+
+            // 对块0读数据（此时cache有数据）
+            #500;
+                RD = 0;
+                MWr = 0;
+                Addr = 32'b00000000000000000000000000000100;
+              $monitor($time,,,"\nRD:%d , %b\nMWr: %d, %b\nADDr: %d, %b\ncpu_data:%d , %b\n\n\n",RD,RD,MWr,MWr,Addr,Addr,cpu_data,cpu_data);
+
+            // 对块1读数据（此时cache没有数据）
+            #500;
+                RD = 0;
+                MWr = 0;
+                Addr = 32'b00000000000001000000000000011000;
+              $monitor($time,,,"\nRD:%d , %b\nMWr: %d, %b\nADDr: %d, %b\ncpu_data:%d , %b\n\n\n",RD,RD,MWr,MWr,Addr,Addr,cpu_data,cpu_data);
+
+            // 对块1写数据（此时cache有数据）
+            #500;
+                RD = 1;
+                MWr = 1;
+                Addr = 32'b00000000000001000000000000011100;
+                cpu_data = 32'b11110111111111110001111111000011;
+              $monitor($time,,,"\nRD:%d , %b\nMWr: %d, %b\nADDr: %d, %b\ncpu_data:%d , %b\n\n\n",RD,RD,MWr,MWr,Addr,Addr,cpu_data,cpu_data);
+
+            // 对块1读数据（此时cache有数据）
+            #500;
+                RD = 0;
+                MWr = 0;
+                Addr = 32'b00000000000001000000000000011100;
+            $monitor($time,,,"\nRD:%d , %b\nMWr: %d, %b\nADDr: %d, %b\ncpu_data:%d , %b\n\n\n",RD,RD,MWr,MWr,Addr,Addr,cpu_data,cpu_data);
+        $dumpoff();
+        $finish;
+        end
+    endmodule
+```
     filename:`makefile`
     ```makefile
     # encoding:utf-8
     # 在Makefile文件中，命令必须以【tab】键开始。
     #test.vcd 是代码里面生成的
-    #测试hello_tb.v里面有
-    # initial begin
-    # 		$dumpfile("./test.vcd");
-    # 		$dumpvars(-1, test);
-    # 		$dumpon();
-    # 		#6
-    # 		$dumpoff();
-    # 		$finish;
-    # end
     ok:
     	iverilog -o laji hello.v hello_tb.v
     	vvp laji
@@ -426,6 +727,7 @@ __eg2__:
     ```shell
     $make
     ```
+    ![](assets/README-8ba03.png)
     ------------------
 
 Or generate predictions on new data:
