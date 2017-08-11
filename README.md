@@ -296,48 +296,103 @@ __eg2__:
   	#iverilog -o laji hello.v hello_tb.v
   	iverilog -o laji hello_tb.v
   	vvp laji
-  	gtkwave counter.vcd
+  	#gtkwave counter.vcd
   ```
+  这里由于代码里面没有生成.vcd的仿真波形文件，故不需要gtkwave
   `terminal:`
   ```shell
   $ make
   ```
   - 通过`include hello.v将文件添加到测试文件中
   - gtkwave选中所有信号，再点insert
-  ![结果图](assets/README-03675.png)
+  ![结果图](assets/README-a7927.png)
   ------------------
   ------------------
-  __eg2__:  
-   [Verilog testbench总结(一)](http://blog.csdn.net/wordwarwordwar/article/details/53885209)
+  __eg4__: Usage of $dumpfile
    `hello.v`
    ```Verilog
+   module adder4(cout,sum,ina,inb,cin);
+   output[3:0] sum;
+   output cout;
+   input[3:0] ina,inb;
+   input cin;
+   assign {cout,sum}=ina+inb+cin;
+   endmodule
    ```
    `hello_tb.v`
    ```Verilog
+   `timescale 1ns/1ns
+   `include "hello.v"
+   //adder4
+   module adder_tp; //测试模块的名字
+   reg[3:0] a,b; //测试输入信号定义为 reg 型
+   reg cin;
+   wire[3:0] sum;
+   //测试输出信号定义为 wire 型
+   wire cout;
+   integer i,j;
+   // adder4 adder(sum,cout,a,b,cin); //调用测试对象
+   //写反了
+   adder4 adder(cout,sum,a,b,cin); //调用测试对象
+   always #5 cin=~cin; //设定 cin 的取值
+   
+   initial begin
+   $dumpfile("./adder_tp.vcd");
+   $dumpvars(-1,adder_tp);
+   $dumpon();
+   a=0;b=0;cin=0;
+   for(i=1;i<16;i=i+1)
+   #10
+   a=i;
+   //设定 a 的取值
+   $dumpoff();
+   $finish;
+   end
+   initial begin
+   for(j=1;j<16;j=j+1)
+   #10
+   //设定 b 的取值
+   b=j;
+   end
+   initial
+   //定义结果显示格式
+   begin
+   $monitor($time,,,"%d + %d + %b={%b,%d}",a,b,cin,cout,sum);
+   #160 $finish;
+   end
+   endmodule
+
    ```
    filename:`makefile`
    ```makefile
    # encoding:utf-8
    # 在Makefile文件中，命令必须以【tab】键开始。
    #test.vcd 是代码里面生成的
-   #测试hello_tb.v里面有
-   # initial begin
-   # 		$dumpfile("./test.vcd");
-   # 		$dumpvars(-1, test);
-   # 		$dumpon();
-   # 		#6
-   # 		$dumpoff();
-   # 		$finish;
-   # end
+   #测试hello_tb.v里面有  
+    #  initial begin
+    #  $dumpfile("./adder_tp.vcd");
+    #  $dumpvars(-1,adder_tp);
+    #  $dumpon();
+    #  a=0;b=0;cin=0;
+    #  for(i=1;i<16;i=i+1)
+    #  #10
+    #  a=i;
+    #  //设定 a 的取值
+    #  $dumpoff();
+    #  $finish;
+    #  end
    ok:
-   	iverilog -o laji hello.v hello_tb.v
+   	#iverilog -o laji hello.v hello_tb.v
+   	iverilog -o laji hello_tb.v
    	vvp laji
-   	gtkwave test.vcd
+   	gtkwave adder_tp.vcd
+   	# gtkwave counter.vcd
    ```
    `terminal:`
    ```shell
    $make
    ```
+   ![效果图](assets/README-bb232.png)
    ------------------
    ------------------
    __eg2__:  
