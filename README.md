@@ -140,6 +140,86 @@ ok:
 $ make
 ```
 ------------------
+[自己写的小例子]  
+`四选一多路选择器`   
+`test.v`
+```Verilog
+module mux4_1(in0,in1,in2,in3,sel,out);
+input in0,in1,in2,in3;
+input [1:0]sel;
+output out;
+reg out;
+always @ (in0 or in1 or in2 or in3 or sel ) begin
+case (sel)
+  2'b00: out = in0 ;
+  2'b01: out = in1 ;
+  2'b10: out = in2 ;
+  2'b11: out = in3 ;
+  default: out = 2'bx;
+endcase
+end
+endmodule //
+
+```  
+`test_tb.v`
+```Verilog
+`include "test.v"
+module test_tb ();
+//module mux4_1(in0,in1,in2,in3,sel,out);
+reg in0,in1,in2,in3;
+reg[1:0] sel;
+wire out;
+integer i,j;
+mux4_1 QRmux4_1(in0,in1,in2,in3,sel,out);
+initial begin
+sel=0;
+assign in0=1;
+assign in1=0;
+assign in2=0;
+assign in3=0;
+  for (i=0;i<4;i++)
+   #10 sel =(sel+1)%4;
+end
+  initial begin
+
+    $display("--------------starting simulation------------");
+    $display("testing mux4_1:\n\n");
+    $monitor($time,"  select : %b  ,result: in0=%b,in1=%b,in2=%b,in3=%b  out=%b",sel,in0,in1,in2,in3,out);
+  #60  $display("\n\n--------------simulation ends----------------\n\n");
+  end
+endmodule //
+```
+makefile
+```sh
+# encoding:utf-8
+################################
+ok:
+	#iverilog -o laji hello.v hello_tb.v
+	iverilog -o laji test_tb.v
+	vvp laji
+```
+![result](assets/README-e6f15.png)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+------------------
 __eg2__:  
  [Verilog testbench总结(一)](http://blog.csdn.net/wordwarwordwar/article/details/53885209)  
  `hello.v`
@@ -713,8 +793,8 @@ __eg2__:
         end
     endmodule
 ```
-    filename:`makefile`
-    ```makefile
+filename:`makefile`
+```makefile
     # encoding:utf-8
     # 在Makefile文件中，命令必须以【tab】键开始。
     #test.vcd 是代码里面生成的
@@ -722,14 +802,16 @@ __eg2__:
     	iverilog -o laji hello.v hello_tb.v
     	vvp laji
     	gtkwave test.vcd
-    ```
-    `terminal:`
-    ```shell
-    $make
-    ```
-    ![](assets/README-8ba03.png)
-    ------------------
+```
+`terminal:`
+```shell
+$make
+```
+![](assets/README-8ba03.png)
+------------------
 
+
+[值得参考](http://pages.cs.wisc.edu/~karu/courses/cs552/spring2009/wiki/index.php/Main/CacheModule#toc1)
 Or generate predictions on new data:
 
 ```python
