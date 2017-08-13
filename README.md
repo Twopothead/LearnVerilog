@@ -140,7 +140,7 @@ ok:
 $ make
 ```
 ------------------
-[自己写的小例子]  
+__[自己写的小例子1]__  
 `四选一多路选择器`   
 `test.v`
 ```Verilog
@@ -189,7 +189,7 @@ end
   end
 endmodule //
 ```
-makefile
+'makefile'
 ```sh
 # encoding:utf-8
 ################################
@@ -199,26 +199,148 @@ ok:
 	vvp laji
 ```
 ![result](assets/README-e6f15.png)
+------------------
+__[自己写的小例子2]__  
+`hello.v`
+```Verilog
+`timescale 1ns / 1ps
+module mux4_1(in0,in1,in2,in3,sel,out);
+input in0,in1,in2,in3;
+input [1:0]sel;
+output out;
+reg out;
+always @ (in0 or in1 or in2 or in3 or sel ) begin
+case (sel)
+  2'b00: out = in0 ;
+  2'b01: out = in1 ;
+  2'b10: out = in2 ;
+  2'b11: out = in3 ;
+  default: out = 2'bx;
+endcase
+end
+endmodule //
 
 
+module demux4_1 (in, sel, out0, out1, out2, out3);
+input [1:0]in;
+input [1:0]sel;
+output [1:0]out0;
+output [1:0]out1;
+output [1:0]out2;
+output [1:0]out3;
+// reg out0,out1,out2,out3;
+reg [1:0] out0;
+reg [1:0]out1;
+reg [1:0]out2;
+reg [1:0]out3;
+
+always @ ( sel or out0 or out1 or out2 or out3 ) begin
+case(sel)
+  2'b00:  out0=in;
+  2'b01:  out1=in;
+  2'b10:  out2=in;
+  2'b11:  out3=in;
+  default:
+      begin
+      out0 = 2'bzz;
+      out1 = 2'bzz;
+      out2 = 2'bzz;
+      out3 = 2'bzz;
+      end
+endcase
+end
+endmodule //
+```
+`hello_tb.v`
+```Verilog
+`timescale 1ns / 1ps
+`include "QRDcache.v"
+module mux4_1_tb ();
+//module mux4_1(in0,in1,in2,in3,sel,out);
+reg in0,in1,in2,in3;
+reg[1:0] sel;
+wire out;
+integer i,j;
+
+// reg clk;
+mux4_1 QRmux4_1(in0,in1,in2,in3,sel,out);
+///////////////
+initial begin
+sel=0;
+assign in0=1;
+assign in1=0;
+assign in2=0;
+assign in3=0;
+  for (i=0;i<10;i++)
+   #10 sel =(sel+1)%4;
+end
 
 
+  initial begin
 
+    $display("--------------starting simulation------------");
+    $display("testing mux4_1:\n\n");
+    $monitor($time,"  select : %b  ,result: in0=%b,in1=%b,in2=%b,in3=%b  out=%b",sel,in0,in1,in2,in3,out);
+  #110  $display("\n\n--------------simulation ends----------------\n\n");
+  end
+   initial begin
 
+   end
+endmodule //
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+module demux4_1_tb ();
+///////demux4_1
+reg [1:0] desel;
+reg [1:0]in;
+integer de_i,i;
+reg clk;
+wire [1:0]out0;
+wire [1:0]out1;
+wire [1:0]out2;
+wire [1:0]out3;
+demux4_1 QRdemux4_1 (in, desel, out0, out1, out2, out3);
+initial begin
+  clk=0;
+  // while(1)
+  for(i=0;i<10;i++)
+  clk = #10 !clk;
+end
+initial begin
+desel=0;
+in=1;
+#120  for (de_i=0;de_i<10;de_i++)
+  begin
+    #10 desel =(desel+1)%4;
+     in = ($random)%4;
+    end
+end
+ initial begin
+#120 $display("--------------starting simulation------------");
+$display("testing demux4_1:\n\n");
+$monitor($time,"  select : %d  ,in = %d,(predict: out%d=%d) result: out0=%d,out1=%d,out2=%d,out3=%d",desel,in,desel,in,out0,out1,out2,out3);
+#220 $display("\n\n--------------simulation ends----------------\n\n");
+end
+initial
+begin
+  #120  $dumpfile("demux4_1_tb.vcd");
+    $dumpvars(0, demux4_1_tb);
+end
+endmodule //
+```
+'makefile'
+```sh
+# encoding:utf-8
+################################
+ok:
+	#iverilog -o laji hello.v hello_tb.v
+	iverilog -o laji hello_tb.v
+	vvp laji
+	gtkwave demux4_1_tb.vcd
+```
+![terminal](assets/README-9fe96.png)
+press this _Zoom fit__ button ,then the gtkwave will show the result of simulation.
+![Zoom fit button](assets/README-8bce0.png)
+![wave]](assets/README-489cd.png)
 ------------------
 __eg2__:  
  [Verilog testbench总结(一)](http://blog.csdn.net/wordwarwordwar/article/details/53885209)  
@@ -814,9 +936,6 @@ $make
 [值得参考](http://pages.cs.wisc.edu/~karu/courses/cs552/spring2009/wiki/index.php/Main/CacheModule#toc1)
 Or generate predictions on new data:
 
-```python
-classes = model.predict(x_test, batch_size=128)
-```
 
 Building a question answering system, an image classification model, a Neural Turing Machine, or any other model is just as fast. The ideas behind deep learning are simple, so why should their implementation be painful?
 
@@ -833,12 +952,12 @@ In the [examples folder](https://github.com/fchollet/keras/tree/master/examples)
 
 ## Installation
 
-Keras uses the following dependencies:
+We use the following dependencies:
 
-- numpy, scipy
-- yaml
-- HDF5 and h5py (optional, required if you use model saving/loading functions)
-- Optional but recommended if you use CNNs: cuDNN.
+- iverilog :sudo apt-get install iverilog
+- gtkwave  :sudo apt-get install gtkwave
+- Atom (optional, required if you need syntax highlighting)
+
 
 
 *When using the TensorFlow backend:*
@@ -865,36 +984,5 @@ You can also install Keras from PyPI:
 ```sh
 sudo pip install keras
 ```
-
-------------------
-
-
-## Switching from TensorFlow to CNTK or Theano
-
-By default, Keras will use TensorFlow as its tensor manipulation library. [Follow these instructions](http://keras.io/backend/) to configure the Keras backend.
-
-------------------
-
-
-## Support
-
-You can ask questions and join the development discussion:
-
-- On the [Keras Google group](https://groups.google.com/forum/#!forum/keras-users).
-- On the [Keras Slack channel](https://kerasteam.slack.com). Use [this link](https://keras-slack-autojoin.herokuapp.com/) to request an invitation to the channel.
-
-You can also post **bug reports and feature requests** (only) in [Github issues](https://github.com/fchollet/keras/issues). Make sure to read [our guidelines](https://github.com/fchollet/keras/blob/master/CONTRIBUTING.md) first.
-
-
-------------------
-
-
-## Why this name, Keras?
-
-Keras (κέρας) means _horn_ in Greek. It is a reference to a literary image from ancient Greek and Latin literature, first found in the _Odyssey_, where dream spirits (_Oneiroi_, singular _Oneiros_) are divided between those who deceive men with false visions, who arrive to Earth through a gate of ivory, and those who announce a future that will come to pass, who arrive through a gate of horn. It's a play on the words κέρας (horn) / κραίνω (fulfill), and ἐλέφας (ivory) / ἐλεφαίρομαι (deceive).
-
-Keras was initially developed as part of the research effort of project ONEIROS (Open-ended Neuro-Electronic Intelligent Robot Operating System).
-
->_"Oneiroi are beyond our unravelling --who can be sure what tale they tell? Not all that men look for comes to pass. Two gates there are that give passage to fleeting Oneiroi; one is made of horn, one of ivory. The Oneiroi that pass through sawn ivory are deceitful, bearing a message that will not be fulfilled; those that come out through polished horn have truth behind them, to be accomplished for men who see them."_ Homer, Odyssey 19. 562 ff (Shewring translation).
 
 ------------------
