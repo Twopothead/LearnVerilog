@@ -254,7 +254,7 @@ endmodule //
 `hello_tb.v`
 ```Verilog
 `timescale 1ns / 1ps
-`include "QRDcache.v"
+`include "hello.v"
 module mux4_1_tb ();
 //module mux4_1(in0,in1,in2,in3,sel,out);
 reg in0,in1,in2,in3;
@@ -338,9 +338,9 @@ ok:
 	gtkwave demux4_1_tb.vcd
 ```
 ![terminal](assets/README-9fe96.png)
-press this _Zoom fit__ button ,then the gtkwave will show the result of simulation.
+Press this __Zoom fit__ button ,then the gtkwave will show the result of simulation.  
 ![Zoom fit button](assets/README-8bce0.png)
-![wave]](assets/README-489cd.png)
+![wave](assets/README-489cd.png)
 ------------------
 __eg2__:  
  [Verilog testbench总结(一)](http://blog.csdn.net/wordwarwordwar/article/details/53885209)  
@@ -974,15 +974,5 @@ We use the following dependencies:
 
 - Theano
     - [See installation instructions](http://deeplearning.net/software/theano/install.html#install).
-
-To install Keras, `cd` to the Keras folder and run the install command:
-```sh
-sudo python setup.py install
-```
-
-You can also install Keras from PyPI:
-```sh
-sudo pip install keras
-```
 
 ------------------
